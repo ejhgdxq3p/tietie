@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黑板便利贴生成器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .blackboard-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: row;
+            position: relative;
+        }
+
+        /* 黑板背景 */
+        .blackboard {
+            flex: 1;
+            background-color: #2a623d;
+            border: 10px solid #8b5a2b;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* 控制面板 */
+        .control-panel {
+            background-color: rgba(45, 50, 60, 0.9);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            width: 250px;
+            height: 100vh;
+            overflow-y: auto;
+            color: white;
+            gap: 20px;
+        }
+
+        /* 面板区块 */
+        .panel-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .panel-section h3 {
+            margin: 0;
+            font-size: 16px;
+            color: #64B5F6;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 5px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* 输入框样式 */
+        #note-title, #note-content {
+            padding: 8px;
+            width: 100%;
+            border-radius: 4px;
+            border: none;
+            background-color: #37474F;
+            color: #e0e0e0;
+            transition: all 0.2s ease;
+        }
+        
+        #note-title::placeholder, #note-content::placeholder {
+            color: #78909C;
+        }
+        
+        #note-title:focus, #note-content:focus {
+            background-color: #455A64;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.3);
+        }
+        
+        #note-content {
+            height: 60px;
+            resize: none;
+        }
+
+        .color-selector {
+            display: flex;
+            gap: 5px;
+            pointer-events: none;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        /* 颜色选择器样式 */
+        .color-option {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            user-select: none;
+            pointer-events: auto;
+            transition: all 0.2s ease;
+        }
+        
+        .color-option.selected {
+            border: 2px solid white;
+            transform: scale(1.1);
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+
+        .color-option[data-color="#FFFF99"] { background-color: #FFFF99; }
+        .color-option[data-color="#FF9999"] { background-color: #FF9999; }
+        .color-option[data-color="#99FF99"] { background-color: #99FF99; }
+        .color-option[data-color="#9999FF"] { background-color: #9999FF; }
+        .color-option[data-color="#FF99FF"] { background-color: #FF99FF; }
+        .color-option[data-color="#FFFFFF"] { 
+            background-color: #FFFFFF; 
+            border: 2px solid #ddd;
+        }
+
+        /* 随机颜色选项样式 */
+        .random-color {
+            background: linear-gradient(45deg, #FF9999, #FFFF99, #99FF99, #9999FF, #FF99FF);
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: black;
+            font-weight: bold;
+            width: auto;
+            padding: 0 5px;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+        
+        .random-color.selected {
+            border: 2px solid white;
+            transform: scale(1.1);
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+
+        /* 便利贴样式 */
+        .sticky-note {
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            padding: 15px;
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+            cursor: move;
+            z-index: auto; /* 让z-index由JavaScript动态控制 */
+            transform: rotate(var(--rotate-deg)) scale(1);
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
+            border-radius: 2px;
+            overflow: hidden;
+            opacity: 0.85; /* 默认透明度 */
+            pointer-events: all !important; /* 确保便利贴可以接收事件 */
+            user-select: none; /* 防止文本选择干扰拖动 */
+            touch-action: none; /* 防止触摸事件干扰 */
+        }
+
+        /* 悬停效果 */
+        .sticky-note:hover:not(.selected-note) {
+            transform: rotate(var(--rotate-deg)) scale(1.01) translateY(-2px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.25);
+            opacity: 0.9;
+            z-index: 5;
+        }
+
+        /* 选中的便利贴 */
+        .selected-note {
+            box-shadow: 0 0 0 2px #fff, 0 0 0 4px #2196F3, 0 8px 15px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+            transform: rotate(var(--rotate-deg)) scale(1.02) translateY(-3px) !important;
+            opacity: 0.95; /* 选中时更不透明 */
+        }
+
+        /* 便利贴背景图片 */
+        .note-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0.9; /* 调整透明度，使文字更易读 */
+            pointer-events: none; /* 允许点击穿透到下面的元素 */
+        }
+
+        .sticky-note .note-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 16px;
+            position: relative; /* 确保在背景图片上方 */
+            z-index: 1;
+            color: rgba(0, 0, 0, 0.9); /* 确保文字不透明 */
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.5); /* 添加文字阴影增加可读性 */
+            pointer-events: none; /* 禁止编辑 */
+        }
+
+        .sticky-note .note-content {
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            position: relative; /* 确保在背景图片上方 */
+            z-index: 1;
+            color: rgba(0, 0, 0, 0.9); /* 确保文字不透明 */
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.5); /* 添加文字阴影增加可读性 */
+            pointer-events: none; /* 禁止编辑 */
+        }
+
+        /* 删除按钮 */
+        .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 28px;
+            height: 28px;
+            background-color: #d0d0d0;
+            color: #2196F3;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1), 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+            z-index: 2;
+            opacity: 0; /* 默认隐藏 */
+            visibility: hidden; /* 默认不可见 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .delete-btn:hover {
+            background-color: #2196F3;
+            color: #d0d0d0; /* 保持灰色 */
+            transform: scale(1.1);
+            transform-origin: center;
+        }
+
+        /* 删除按钮内的X符号 */
+        .delete-btn::before {
+            content: "";
+            display: block;
+            width: 14px;
+            height: 14px;
+            background: currentColor;
+            clip-path: polygon(
+                0% 40%, 40% 40%, 40% 0%, 60% 0%, 60% 40%, 
+                100% 40%, 100% 60%, 60% 60%, 60% 100%, 
+                40% 100%, 40% 60%, 0% 60%
+            );
+            transition: all 0.2s;
+        }
+
+        .delete-btn:hover::before {
+            transform: rotate(45deg);
+        }
+
+        /* 选中便利贴时显示删除按钮 */
+        .selected-note .delete-btn {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* 底部阴影 */
+        .bottom-shadow {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 10px;
+            background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.1));
+            pointer-events: none;
+        }
+
+        /* 对齐指示线 */
+        .alignment-guide {
+            position: absolute;
+            background-color: rgba(33, 150, 243, 0.7);
+            z-index: 999;
+            pointer-events: none;
+        }
+
+        .alignment-guide.horizontal {
+            height: 2px;
+            width: 100%;
+            left: 0;
+        }
+
+        .alignment-guide.vertical {
+            width: 2px;
+            height: 100%;
+            top: 0;
+        }
+
+        /* 右键菜单 */
+        .context-menu {
+            position: absolute;
+            min-width: 150px;
+            background-color: rgba(45, 50, 60, 0.95);
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        .context-menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .context-menu-item:hover {
+            background-color: #546E7A;
+        }
+
+        .context-menu-item:not(:last-child) {
+            border-bottom: 1px solid #eee;
+        }
+
+        /* 操作按钮 */
+        .action-buttons button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #555;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .action-buttons button:hover {
+            background-color: #666;
+        }
+
+        /* 键盘提示 */
+        .keyboard-tips {
+            position: relative;
+            margin-top: 10px;
+        }
+
+        .tip-icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background-color: #455A64;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            cursor: pointer;
+        }
+
+        .tips-content {
+            display: none;
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            width: 100%;
+            background-color: rgba(45, 50, 60, 0.95);
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+        }
+
+        .tip-icon:hover + .tips-content {
+            display: block;
+        }
+
+        .tips-content h4 {
+            margin-top: 0;
+            margin-bottom: 5px;
+            color: #64B5F6;
+        }
+
+        .tips-content p {
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        /* 涂鸦区样式 */
+        .drawing-section {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .drawing-container {
+            background-color: white;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        #drawing-canvas {
+            background-color: white;
+            cursor: crosshair;
+            width: 100%;
+            height: 280px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .drawing-tools {
+            display: flex;
+            padding: 5px;
+            background-color: #f5f5f5;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .drawing-tools button, .drawing-tools input[type="color"] {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border: none;
+            cursor: pointer;
+        }
+
+        #brush-size {
+            width: 60px;
+        }
+
+        /* 涂鸦工具 */
+        #clear-canvas, .upload-btn {
+            background-color: #455A64;
+            border: 1px solid #37474F;
+            color: white;
+            border-radius: 4px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #clear-canvas:hover, .upload-btn:hover {
+            background-color: #546E7A;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 重新设计的图标 */
+        .eraser-icon {
+            width: 16px;
+            height: 16px;
+            background-color: currentColor;
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 0 1-5.66 0L2.81 17.1a2.01 2.01 0 0 1 0-2.84l6.25-6.25 7.18-4.45zm.71 1.42L9.7 9.96l6.36 6.36 8.48-8.48a.996.996 0 0 0 0-1.41l-4.95-4.95a.996.996 0 0 0-1.41 0z'/%3E%3C/svg%3E");
+            mask-repeat: no-repeat;
+            mask-position: center;
+            mask-size: contain;
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 0 1-5.66 0L2.81 17.1a2.01 2.01 0 0 1 0-2.84l6.25-6.25 7.18-4.45zm.71 1.42L9.7 9.96l6.36 6.36 8.48-8.48a.996.996 0 0 0 0-1.41l-4.95-4.95a.996.996 0 0 0-1.41 0z'/%3E%3C/svg%3E");
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            -webkit-mask-size: contain;
+        }
+        
+        .upload-icon {
+            width: 16px;
+            height: 16px;
+            background-color: currentColor;
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z'/%3E%3C/svg%3E");
+            mask-repeat: no-repeat;
+            mask-position: center;
+            mask-size: contain;
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z'/%3E%3C/svg%3E");
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            -webkit-mask-size: contain;
+        }
+
+        /* 生成便利贴按钮样式 */
+        #create-note {
+            margin-top: 5px;
+            background-color: #2196F3;
+            color: white;
+            padding: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        #create-note:hover {
+            background-color: #1E88E5;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        #create-note:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 撤销和重做按钮 */
+        .history-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        #undo-button, #redo-button {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            background-color: #455A64;
+            transition: all 0.3s;
+        }
+
+        #undo-button:hover, #redo-button:hover {
+            background-color: #546E7A;
+        }
+
+        #undo-button:disabled, #redo-button:disabled {
+            background-color: #37474F;
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .history-icon {
+            font-size: 18px;
+            font-style: normal;
+        }
+
+        /* 黑板背景颜色选择器 */
+        .board-colors {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 100;
+            background-color: rgba(45, 50, 60, 0.7);
+            padding: 8px;
+            border-radius: 5px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .board-color-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .board-color-option {
+            width: 25px;
+            height: 25px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .board-color-option:hover {
+            transform: scale(1.1);
+        }
+
+        .board-color-option.selected {
+            border-color: white;
+            transform: scale(1.1);
+        }
+
+        .board-color-option[data-color="#2a623d"] { background-color: #2a623d; }
+        .board-color-option[data-color="#000000"] { background-color: #000000; }
+        .board-color-option[data-color="#FFFFFF"] { background-color: #FFFFFF; }
+        .board-color-option[data-color="#1e3a5f"] { background-color: #1e3a5f; }
+        .board-color-option[data-color="#5f1e1e"] { background-color: #5f1e1e; }
+        .board-color-option[data-color="#3d3d3d"] { background-color: #3d3d3d; }
+
+        :root {
+            --grid-color: rgba(255, 255, 255, 0.3);
+            --grid-color-active: rgba(255, 255, 255, 0.4);
+        }
+
+        /* 只有选中的便利贴才显示网格 */
+        .selected-note.align-to-grid.show-grid {
+            background-image: linear-gradient(var(--grid-color) 1px, transparent 1px),
+                             linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: center center;
+        }
+
+        /* 拖动时的网格背景 */
+        .align-to-grid.ui-draggable-dragging {
+            background-image: linear-gradient(var(--grid-color-active) 1px, transparent 1px),
+                             linear-gradient(90deg, var(--grid-color-active) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: center center;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="blackboard-container">
+        <!-- 黑板背景 -->
+        <div class="blackboard" id="blackboard">
+            <!-- 便利贴将在这里动态生成 -->
+            <div class="board-colors">
+                <div class="board-color-selector">
+                    <span class="board-color-option" data-color="#2a623d" title="绿色黑板"></span>
+                    <span class="board-color-option" data-color="#000000" title="黑色黑板"></span>
+                    <span class="board-color-option" data-color="#FFFFFF" title="白色黑板"></span>
+                    <span class="board-color-option" data-color="#1e3a5f" title="蓝色黑板"></span>
+                    <span class="board-color-option" data-color="#5f1e1e" title="红色黑板"></span>
+                    <span class="board-color-option" data-color="#3d3d3d" title="灰色黑板"></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <!-- 颜色选择器 -->
+            <div class="panel-section">
+                <h3>选择颜色</h3>
+                <div class="color-selector">
+                    <span class="color-option" data-color="#FFFF99"></span>
+                    <span class="color-option" data-color="#FF9999"></span>
+                    <span class="color-option" data-color="#99FF99"></span>
+                    <span class="color-option" data-color="#9999FF"></span>
+                    <span class="color-option" data-color="#FF99FF"></span>
+                    <span class="color-option" data-color="#FFFFFF"></span>
+                    <span class="color-option random-color" data-color="random">随机</span>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <h3>便利贴内容</h3>
+                <input type="text" id="note-title" placeholder="输入标题...">
+                <textarea id="note-content" placeholder="输入内容..."></textarea>
+            </div>
+            
+            <!-- 涂鸦区 -->
+            <div class="panel-section drawing-section">
+                <h3>添加涂鸦或图片</h3>
+                <div class="drawing-container">
+                    <canvas id="drawing-canvas" width="280" height="280"></canvas>
+                    <div class="drawing-tools">
+                        <button id="clear-canvas" title="清除"><div class="eraser-icon"></div></button>
+                        <input type="color" id="brush-color" value="#000000">
+                        <input type="range" id="brush-size" min="1" max="20" value="3">
+                        <label for="image-upload" class="upload-btn" title="上传图片"><div class="upload-icon"></div></label>
+                        <input type="file" id="image-upload" accept="image/*" style="display: none;">
+                    </div>
+                </div>
+                <button id="create-note">生成便利贴</button>
+            </div>
+            
+            <div class="panel-section action-buttons">
+                <h3>操作</h3>
+                <div class="history-buttons">
+                    <button id="undo-button" title="撤销"><i class="history-icon">↩</i></button>
+                    <button id="redo-button" title="重做"><i class="history-icon">↪</i></button>
+                </div>
+                <button id="save-board">保存为图片</button>
+                <button id="clear-board">清空黑板</button>
+                <div class="keyboard-tips">
+                    <span class="tip-icon">?</span>
+                    <div class="tips-content">
+                        <h4>键盘快捷键:</h4>
+                        <p>← → : 调整便利贴角度</p>
+                        <p>↑ ↓ : 放大/缩小便利贴</p>
+                        <p>双击: 编辑便利贴</p>
+                        <p>右键: 打开菜单</p>
+                        <p>Shift+方向键: 回正/恢复大小</p>
+                        <p>Shift+↓ : 回正到0度</p>
+                        <p>Shift+← → : 八向对齐</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            let selectedColor = "random"; // 默认随机颜色
+            let currentNoteId = 0;
+            let activeContextMenu = null;
+            let isDrawing = false;
+            let lastX = 0;
+            let lastY = 0;
+            let drawingCanvas = document.getElementById('drawing-canvas');
+            let ctx = drawingCanvas.getContext('2d');
+            let drawingData = null; // 存储当前绘图数据
+            
+            // 历史记录
+            let boardHistory = []; // 存储黑板状态历史
+            let currentHistoryIndex = -1; // 当前历史记录索引
+            let isUndoRedoAction = false; // 标记是否正在执行撤销/重做操作
+            
+            // 初始化撤销和重做按钮状态
+            updateHistoryButtonStates();
+            
+            // 便利贴颜色选择
+            $(".color-option, .random-color").click(function() {
+                // 移除其他颜色选项的选中状态
+                $(".color-option, .random-color").removeClass("selected");
+                
+                // 添加当前颜色选项的选中状态
+                $(this).addClass("selected");
+                
+                // 设置选中的颜色
+                if ($(this).hasClass("random-color")) {
+                    selectedColor = "random";
+                } else {
+                    selectedColor = $(this).data("color");
+                }
+            });
+            
+            // 生成随机颜色
+            function getRandomColor() {
+                const colors = ["#FFFF99", "#FF9999", "#99FF99", "#9999FF", "#FF99FF", "#FFCC99", "#99FFFF"];
+                return colors[Math.floor(Math.random() * colors.length)];
+            }
+            
+            // 生成随机角度
+            function getRandomRotation() {
+                // 80%的概率生成正向便利贴，20%的概率有轻微倾斜
+                return Math.random() > 0.2 ? 0 : (Math.random() * 6 - 3);
+            }
+            
+            // 生成随机位置
+            function getRandomPosition() {
+                const boardWidth = $("#blackboard").width();
+                const boardHeight = $("#blackboard").height();
+                
+                return {
+                    left: Math.random() * (boardWidth - 350) + 50,
+                    top: Math.random() * (boardHeight - 350) + 50
+                };
+            }
+            
+            // 初始化涂鸦区
+            function initDrawingCanvas() {
+                // 设置画布背景为白色
+                ctx.fillStyle = "white";
+                ctx.fillRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+                
+                // 鼠标按下事件
+                $('#drawing-canvas').mousedown(function(e) {
+                    isDrawing = true;
+                    const rect = drawingCanvas.getBoundingClientRect();
+                    lastX = e.clientX - rect.left;
+                    lastY = e.clientY - rect.top;
+                });
+                
+                // 鼠标移动事件
+                $('#drawing-canvas').mousemove(function(e) {
+                    if (!isDrawing) return;
+                    
+                    const rect = drawingCanvas.getBoundingClientRect();
+                    const currentX = e.clientX - rect.left;
+                    const currentY = e.clientY - rect.top;
+                    
+                    ctx.strokeStyle = $('#brush-color').val();
+                    ctx.lineWidth = $('#brush-size').val();
+                    ctx.lineJoin = 'round';
+                    ctx.lineCap = 'round';
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(lastX, lastY);
+                    ctx.lineTo(currentX, currentY);
+                    ctx.stroke();
+                    
+                    lastX = currentX;
+                    lastY = currentY;
+                    
+                    // 保存当前绘图数据
+                    drawingData = drawingCanvas.toDataURL();
+                });
+                
+                // 鼠标松开事件
+                $(document).mouseup(function() {
+                    isDrawing = false;
+                });
+                
+                // 鼠标离开画布事件
+                $('#drawing-canvas').mouseleave(function() {
+                    isDrawing = false;
+                });
+                
+                // 清除画布按钮
+                $('#clear-canvas').click(function() {
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+                    drawingData = null;
+                });
+                
+                // 上传图片
+                $('#image-upload').change(function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const img = new Image();
+                            img.onload = function() {
+                                // 清除画布
+                                ctx.fillStyle = "white";
+                                ctx.fillRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+                                
+                                // 计算图片缩放比例，保持宽高比
+                                const canvasRatio = drawingCanvas.width / drawingCanvas.height;
+                                const imgRatio = img.width / img.height;
+                                
+                                let drawWidth, drawHeight, offsetX, offsetY;
+                                
+                                if (imgRatio > canvasRatio) {
+                                    // 图片更宽，以宽度为基准
+                                    drawWidth = drawingCanvas.width;
+                                    drawHeight = drawWidth / imgRatio;
+                                    offsetX = 0;
+                                    offsetY = (drawingCanvas.height - drawHeight) / 2;
+                                } else {
+                                    // 图片更高，以高度为基准
+                                    drawHeight = drawingCanvas.height;
+                                    drawWidth = drawHeight * imgRatio;
+                                    offsetX = (drawingCanvas.width - drawWidth) / 2;
+                                    offsetY = 0;
+                                }
+                                
+                                // 绘制图片
+                                ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                                
+                                // 保存当前绘图数据
+                                drawingData = drawingCanvas.toDataURL();
+                            };
+                            img.src = event.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+            
+            // 初始化涂鸦区
+            initDrawingCanvas();
+            
+            // 创建便利贴
+            $("#create-note").click(function() {
+                createNewNote();
+                saveToHistory(); // 保存历史记录
+            });
+            
+            // 检查便利贴重叠
+            function checkOverlap() {
+                const $notes = $('.sticky-note');
+                if ($notes.length < 2) return;
+                
+                // 重置所有便利贴的z-index
+                $notes.each(function(index) {
+                    $(this).css('z-index', index + 1);
+                });
+                
+                // 选中的便利贴始终在最上层
+                $('.selected-note').css('z-index', $notes.length + 1);
+            }
+            
+            // 创建便利贴
+            function createNewNote() {
+                const title = $("#note-title").val() || "";
+                const content = $("#note-content").val() || "";
+                const noteColor = selectedColor === "random" ? getRandomColor() : selectedColor;
+                const position = getRandomPosition();
+                const rotation = getRandomRotation();
+                const noteId = currentNoteId++;
+                const hasDrawing = drawingData !== null;
+                
+                // 获取当前最高的z-index
+                let maxZIndex = 0;
+                $('.sticky-note').each(function() {
+                    const zIndex = parseInt($(this).css('z-index')) || 0;
+                    maxZIndex = Math.max(maxZIndex, zIndex);
+                });
+                
+                // 创建便利贴HTML
+                let noteHtml;
+                
+                if (hasDrawing) {
+                    // 带有涂鸦/图片的便利贴
+                    noteHtml = `
+                        <div class="sticky-note" id="note-${noteId}" style="background-color: ${noteColor}; left: ${position.left}px; top: ${position.top}px; --rotate-deg: ${rotation}deg; z-index: ${maxZIndex + 100};">
+                            <div class="delete-btn"></div>
+                            <div class="note-background" style="background-image: url('${drawingData}');"></div>
+                            <div class="note-title">${title}</div>
+                            <div class="note-content">${content}</div>
+                            <div class="bottom-shadow"></div>
+                        </div>
+                    `;
+                } else {
+                    // 普通便利贴
+                    noteHtml = `
+                        <div class="sticky-note" id="note-${noteId}" style="background-color: ${noteColor}; left: ${position.left}px; top: ${position.top}px; --rotate-deg: ${rotation}deg; z-index: ${maxZIndex + 100};">
+                            <div class="delete-btn"></div>
+                            <div class="note-title">${title}</div>
+                            <div class="note-content">${content}</div>
+                            <div class="bottom-shadow"></div>
+                        </div>
+                    `;
+                }
+                
+                $("#blackboard").append(noteHtml);
+                
+                // 选中新创建的便利贴
+                $('.sticky-note').removeClass('selected-note');
+                $(`#note-${noteId}`).addClass('selected-note');
+                
+                // 清空输入框和画布
+                $("#note-title").val("");
+                $("#note-content").val("");
+                ctx.fillStyle = "white";
+                ctx.fillRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+                drawingData = null;
+                
+                // 确保新便利贴可以被选中和拖动
+                initializeStickyNote(`#note-${noteId}`);
+                
+                // 保存历史记录
+                saveToHistory();
+            }
+            
+            // 初始化便利贴的交互功能
+            function initializeStickyNote(selector) {
+                const $note = $(selector);
+                
+                try {
+                    // 尝试销毁现有的draggable
+                    if ($note.hasClass('ui-draggable')) {
+                        $note.draggable('destroy');
+                    }
+                } catch (e) {
+                    console.log('Error destroying draggable:', e);
+                }
+                
+                // 移除所有现有事件
+                $note.off('mousedown click mouseenter mouseleave contextmenu');
+                
+                // 重新设置z-index确保可见
+                if (parseInt($note.css('z-index')) <= 0) {
+                    $note.css('z-index', 10);
+                }
+                
+                // 确保便利贴可以被点击选中 - 使用click而不是mousedown
+                $note.on('click', function(e) {
+                    // 如果点击的是删除按钮，不处理
+                    if ($(e.target).hasClass('delete-btn') || $(e.target).closest('.delete-btn').length) {
+                        return;
+                    }
+                    
+                    // 移除其他便利贴的选中状态
+                    $('.sticky-note').removeClass('selected-note');
+                    
+                    // 添加当前便利贴的选中状态
+                    $(this).addClass('selected-note');
+                    
+                    // 将选中的便利贴置于顶层
+                    bringToFront($(this));
+                    
+                    // 阻止事件冒泡
+                    e.stopPropagation();
+                });
+                
+                // 使用setTimeout确保DOM完全准备好
+                setTimeout(function() {
+                    try {
+                        // 使便利贴可拖动
+                        $note.draggable({
+                            containment: "parent",
+                            stack: ".sticky-note",
+                            cancel: ".delete-btn", // 删除按钮不能用于拖动
+                            start: function(event, ui) {
+                                // 开始拖动时添加选中状态
+                                $('.sticky-note').removeClass('selected-note');
+                                $(this).addClass('selected-note');
+                                
+                                // 检查是否接近正向，添加网格对齐类
+                                const rotation = parseFloat($(this).css('--rotate-deg') || '0deg');
+                                if (Math.abs(rotation % 90) < 0.5) {
+                                    $(this).addClass('align-to-grid');
+                                    $(this).addClass('show-grid');
+                                }
+                                
+                                // 移除所有对齐指示线
+                                $('.alignment-guide').remove();
+                                
+                                // 将拖动的便利贴置于顶层
+                                bringToFront($(this));
+                            },
+                            drag: function(event, ui) {
+                                // 检查是否接近正向
+                                const rotation = parseFloat($(this).css('--rotate-deg') || '0deg');
+                                if (Math.abs(rotation % 90) < 0.5) {
+                                    // 移除所有对齐指示线
+                                    $('.alignment-guide').remove();
+                                    
+                                    // 检查对齐
+                                    checkAlignment($(this), ui.position);
+                                }
+                            },
+                            stop: function() {
+                                $(this).removeClass('show-grid');
+                                // 移除所有对齐指示线
+                                $('.alignment-guide').remove();
+                                
+                                // 保存历史记录
+                                saveToHistory();
+                            }
+                        });
+                    } catch (e) {
+                        console.error('Error initializing draggable:', e);
+                    }
+                }, 100);
+                
+                // 删除按钮功能
+                $note.find('.delete-btn').off('click').on('click', function(e) {
+                    e.stopPropagation();
+                    $note.remove();
+                    saveToHistory(); // 保存历史记录
+                });
+                
+                // 右键菜单
+                $note.off("contextmenu").on("contextmenu", function(e) {
+                    e.preventDefault();
+                    showContextMenu(e.pageX, e.pageY, $note.attr('id').replace('note-', ''));
+                });
+                
+                // 显示删除按钮
+                $note.off('mouseenter').on('mouseenter', function() {
+                    $(this).find('.delete-btn').css({
+                        'opacity': '1',
+                        'visibility': 'visible'
+                    });
+                });
+                
+                // 隐藏删除按钮
+                $note.off('mouseleave').on('mouseleave', function() {
+                    if (!$(this).hasClass('selected-note')) {
+                        $(this).find('.delete-btn').css({
+                            'opacity': '0',
+                            'visibility': 'hidden'
+                        });
+                    }
+                });
+            }
+            
+            // 将便利贴置于顶层
+            function bringToFront($note) {
+                // 获取所有便利贴
+                const $allNotes = $('.sticky-note');
+                // 找出当前最高的z-index
+                let maxZIndex = 0;
+                $allNotes.each(function() {
+                    const zIndex = parseInt($(this).css('z-index')) || 0;
+                    maxZIndex = Math.max(maxZIndex, zIndex);
+                });
+                // 设置当前便利贴的z-index为最高值+1
+                $note.css('z-index', maxZIndex + 1);
+            }
+            
+            // 显示右键菜单
+            function showContextMenu(x, y, noteId) {
+                // 移除现有的右键菜单
+                if (activeContextMenu) {
+                    activeContextMenu.remove();
+                    activeContextMenu = null;
+                }
+                
+                // 创建右键菜单
+                const menuHtml = `
+                    <div class="context-menu" id="context-menu-${noteId}">
+                        <div class="menu-item" data-action="bring-front">置于顶层</div>
+                        <div class="menu-item" data-action="send-back">置于底层</div>
+                        <div class="menu-item" data-action="rotate-left">向左旋转</div>
+                        <div class="menu-item" data-action="rotate-right">向右旋转</div>
+                        <div class="menu-item" data-action="delete">删除</div>
+                    </div>
+                `;
+                
+                $("body").append(menuHtml);
+                
+                // 设置菜单位置
+                const $menu = $(`#context-menu-${noteId}`);
+                $menu.css({
+                    top: y + 'px',
+                    left: x + 'px'
+                });
+                
+                // 记录当前活动的右键菜单
+                activeContextMenu = $menu;
+                
+                // 菜单项点击事件
+                $menu.find('.menu-item').click(function() {
+                    const action = $(this).data('action');
+                    const $note = $(`#note-${noteId}`);
+                    
+                    switch(action) {
+                        case 'bring-front':
+                            // 置于顶层
+                            const maxZ = Math.max.apply(null, $('.sticky-note').map(function() {
+                                return parseInt($(this).css('z-index')) || 0;
+                            }).get());
+                            $note.css('z-index', maxZ + 1);
+                            break;
+                        case 'send-back':
+                            // 置于底层
+                            $note.css('z-index', 0);
+                            break;
+                        case 'rotate-left':
+                            // 向左旋转
+                            let rotateLeft = parseFloat($note.css('--rotate-deg') || '0deg');
+                            rotateLeft -= 15;
+                            $note.css('--rotate-deg', rotateLeft + 'deg');
+                            $note.css('transform', `rotate(${rotateLeft}deg) scale(${$note.data('scale') || 1})`);
+                            break;
+                        case 'rotate-right':
+                            // 向右旋转
+                            let rotateRight = parseFloat($note.css('--rotate-deg') || '0deg');
+                            rotateRight += 15;
+                            $note.css('--rotate-deg', rotateRight + 'deg');
+                            $note.css('transform', `rotate(${rotateRight}deg) scale(${$note.data('scale') || 1})`);
+                            break;
+                        case 'delete':
+                            // 删除
+                            $note.remove();
+                            break;
+                    }
+                    
+                    // 关闭菜单
+                    $menu.remove();
+                    activeContextMenu = null;
+                    
+                    // 保存历史记录
+                    saveToHistory();
+                });
+                
+                // 点击其他区域关闭菜单
+                $(document).one('click', function() {
+                    if (activeContextMenu) {
+                        activeContextMenu.remove();
+                        activeContextMenu = null;
+                    }
+                });
+            }
+            
+            // 显示对齐指示线
+            function showAlignmentGuide(direction, position) {
+                // 移除同方向的现有指示线
+                $(`.alignment-guide.${direction}`).remove();
+                
+                // 创建新的指示线
+                const guideHtml = `<div class="alignment-guide ${direction}" style="${direction === 'vertical' ? 'left' : 'top'}: ${position}px;"></div>`;
+                $("#blackboard").append(guideHtml);
+                
+                // 自动移除指示线
+                setTimeout(function() {
+                    $(`.alignment-guide.${direction}`).fadeOut(200, function() {
+                        $(this).remove();
+                    });
+                }, 1000);
+            }
+            
+            // 修改检查对齐的函数
+            function checkAlignment(note, position) {
+                // 获取当前旋转角度
+                const rotation = parseFloat(note.css('--rotate-deg') || '0deg');
+                
+                // 只对0°, 90°, 180°, 270°应用对齐效果
+                if (Math.abs(rotation % 90) >= 0.5) {
+                    return position;
+                }
+                
+                // 获取所有其他便利贴
+                const $allNotes = $('.sticky-note').not(note);
+                const threshold = 15; // 磁吸阈值（像素）
+                
+                // 当前便利贴位置和尺寸
+                const currentLeft = position.left;
+                const currentTop = position.top;
+                const currentSize = 280; // 便利贴大小
+                const currentRight = currentLeft + currentSize;
+                const currentBottom = currentTop + currentSize;
+                const currentCenterX = currentLeft + currentSize / 2;
+                const currentCenterY = currentTop + currentSize / 2;
+                
+                // 检查与其他便利贴的对齐
+                $allNotes.each(function() {
+                    const $other = $(this);
+                    const otherLeft = parseInt($other.css('left'));
+                    const otherTop = parseInt($other.css('top'));
+                    const otherSize = 280; // 便利贴大小
+                    const otherRight = otherLeft + otherSize;
+                    const otherBottom = otherTop + otherSize;
+                    const otherCenterX = otherLeft + otherSize / 2;
+                    const otherCenterY = otherTop + otherSize / 2;
+                    
+                    // 水平对齐检查
+                    if (Math.abs(currentLeft - otherLeft) < threshold) {
+                        // 左边缘对齐
+                        position.left = otherLeft;
+                        showAlignmentGuide('vertical', otherLeft);
+                    } else if (Math.abs(currentRight - otherRight) < threshold) {
+                        // 右边缘对齐
+                        position.left = otherRight - currentSize;
+                        showAlignmentGuide('vertical', otherRight);
+                    } else if (Math.abs(currentCenterX - otherCenterX) < threshold) {
+                        // 中心对齐
+                        position.left = otherCenterX - currentSize / 2;
+                        showAlignmentGuide('vertical', otherCenterX);
+                    }
+                    
+                    // 垂直对齐检查
+                    if (Math.abs(currentTop - otherTop) < threshold) {
+                        // 顶部对齐
+                        position.top = otherTop;
+                        showAlignmentGuide('horizontal', otherTop);
+                    } else if (Math.abs(currentBottom - otherBottom) < threshold) {
+                        // 底部对齐
+                        position.top = otherBottom - currentSize;
+                        showAlignmentGuide('horizontal', otherBottom);
+                    } else if (Math.abs(currentCenterY - otherCenterY) < threshold) {
+                        // 中心对齐
+                        position.top = otherCenterY - currentSize / 2;
+                        showAlignmentGuide('horizontal', otherCenterY);
+                    }
+                });
+                
+                return position;
+            }
+            
+            // 清空黑板
+            $("#clear-board").click(function() {
+                if (confirm("确定要清空黑板吗？")) {
+                    $("#blackboard").empty();
+                    // 重新添加黑板颜色选择器
+                    $("#blackboard").append(`
+                        <div class="board-colors">
+                            <div class="board-color-selector">
+                                <span class="board-color-option" data-color="#2a623d" title="绿色黑板"></span>
+                                <span class="board-color-option" data-color="#000000" title="黑色黑板"></span>
+                                <span class="board-color-option" data-color="#FFFFFF" title="白色黑板"></span>
+                                <span class="board-color-option" data-color="#1e3a5f" title="蓝色黑板"></span>
+                                <span class="board-color-option" data-color="#5f1e1e" title="红色黑板"></span>
+                                <span class="board-color-option" data-color="#3d3d3d" title="灰色黑板"></span>
+                            </div>
+                        </div>
+                    `);
+                    // 重新绑定黑板颜色选择器事件
+                    bindBoardColorEvents();
+                    saveToHistory(); // 保存历史记录
+                }
+            });
+            
+            // 保存黑板为图片
+            $("#save-board").click(function() {
+                html2canvas(document.getElementById("blackboard"), {
+                    scale: 2, // 提高分辨率
+                    useCORS: true, // 允许加载跨域图片
+                    allowTaint: true, // 允许图片污染画布
+                    backgroundColor: $("#blackboard").css("background-color"), // 设置背景色与黑板一致
+                    logging: false, // 关闭日志
+                    imageTimeout: 0, // 不超时
+                    onclone: function(clonedDoc) {
+                        // 修复克隆文档中的样式问题
+                        $(clonedDoc).find('.sticky-note').each(function() {
+                            const $note = $(this);
+                            const rotation = $note.css('--rotate-deg') || '0deg';
+                            const scale = $note.data('scale') || 1;
+                            
+                            // 直接设置transform样式，避免使用CSS变量
+                            $note.css('transform', `rotate(${rotation}) scale(${scale})`);
+                            
+                            // 隐藏控制面板和颜色选择器
+                            $(clonedDoc).find('.control-panel, .board-colors, .delete-btn').css('display', 'none');
+                        });
+                    }
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = '我的黑板便利贴_高清.png';
+                    link.href = canvas.toDataURL('image/png', 1.0); // 使用最高质量
+                    link.click();
+                });
+            });
+            
+            // 全局键盘事件
+            $(document).keydown(function(e) {
+                const selectedNote = $('.selected-note');
+                if (selectedNote.length > 0) {
+                    // 获取当前旋转角度
+                    let currentRotation = parseFloat(selectedNote.css('--rotate-deg') || '0deg');
+                    
+                    let currentScale;
+                    let rotationChanged = false;
+                    
+                    // 检查是否按下Shift键
+                    if (e.shiftKey) {
+                        switch(e.which) {
+                            case 37: // Shift+左箭头键 - 旋转到最近的八向角度（逆时针）
+                                // 将角度转换为0-360范围
+                                let angle = currentRotation % 360;
+                                if (angle < 0) angle += 360;
+                                
+                                // 找到最近的八向角度（逆时针方向）
+                                for (let i = 0; i < 8; i++) {
+                                    const targetAngle = i * 45;
+                                    if (angle > targetAngle) continue;
+                                    // 找到第一个大于当前角度的八向角度
+                                    currentRotation = (i === 0 ? 315 : (i - 1) * 45);
+                                    break;
+                                }
+                                // 如果没有找到（当前角度接近360度）
+                                if (angle > 315) currentRotation = 315;
+                                rotationChanged = true;
+                                break;
+                            case 39: // Shift+右箭头键 - 旋转到最近的八向角度（顺时针）
+                                // 将角度转换为0-360范围
+                                angle = currentRotation % 360;
+                                if (angle < 0) angle += 360;
+                                
+                                // 找到最近的八向角度（顺时针方向）
+                                for (let i = 7; i >= 0; i--) {
+                                    const targetAngle = i * 45;
+                                    if (angle < targetAngle) continue;
+                                    // 找到第一个小于当前角度的八向角度
+                                    currentRotation = (i === 7 ? 0 : (i + 1) * 45);
+                                    break;
+                                }
+                                // 如果没有找到（当前角度接近0度）
+                                if (angle < 45) currentRotation = 45;
+                                rotationChanged = true;
+                                break;
+                            case 38: // Shift+上箭头键 - 恢复原始大小
+                                currentScale = 1;
+                                selectedNote.data('scale', currentScale);
+                                break;
+                            case 40: // Shift+下箭头键 - 旋转到0度（正向）
+                                currentRotation = 0;
+                                rotationChanged = true;
+                                break;
+                            default: return;
+                        }
+                    } else {
+                        switch(e.which) {
+                            case 37: // 左箭头键
+                                currentRotation -= 1;
+                                break;
+                            case 39: // 右箭头键
+                                currentRotation += 1;
+                                break;
+                            case 38: // 上箭头键
+                                // 放大便利贴
+                                currentScale = selectedNote.data('scale') || 1;
+                                currentScale += 0.05;
+                                selectedNote.data('scale', currentScale);
+                                break;
+                            case 40: // 下箭头键
+                                // 缩小便利贴
+                                currentScale = selectedNote.data('scale') || 1;
+                                currentScale = Math.max(0.5, currentScale - 0.05);
+                                selectedNote.data('scale', currentScale);
+                                break;
+                            default: return;
+                        }
+                    }
+                    
+                    // 更新旋转角度和缩放
+                    selectedNote.css('--rotate-deg', currentRotation + 'deg');
+                    currentScale = selectedNote.data('scale') || 1;
+                    selectedNote.css('transform', `rotate(${currentRotation}deg) scale(${currentScale})`);
+                    
+                    // 如果旋转角度是四个主要方向之一，添加网格对齐类
+                    if (Math.abs(currentRotation % 90) < 0.5) {
+                        selectedNote.addClass('align-to-grid');
+                        
+                        // 如果旋转角度刚刚改变为四个主要方向之一，触发磁吸对齐
+                        if (rotationChanged) {
+                            // 模拟拖动事件以触发磁吸对齐
+                            const position = {
+                                left: parseInt(selectedNote.css('left')),
+                                top: parseInt(selectedNote.css('top'))
+                            };
+                            
+                            // 检查是否需要对齐
+                            checkAlignment(selectedNote, position);
+                            
+                            // 应用新位置
+                            selectedNote.css({
+                                left: position.left + 'px',
+                                top: position.top + 'px'
+                            });
+                        }
+                    } else {
+                        selectedNote.removeClass('align-to-grid');
+                    }
+                    
+                    // 保存历史记录
+                    saveToHistory();
+                    
+                    e.preventDefault(); // 防止页面滚动
+                }
+                
+                // 添加键盘快捷键
+                if (e.ctrlKey || e.metaKey) { // Ctrl 或 Command 键
+                    if (e.which === 90) { // Z 键
+                        if (e.shiftKey) {
+                            // Ctrl+Shift+Z 重做
+                            $('#redo-button').click();
+                        } else {
+                            // Ctrl+Z 撤销
+                            $('#undo-button').click();
+                        }
+                        e.preventDefault();
+                    } else if (e.which === 89) { // Y 键
+                        // Ctrl+Y 重做
+                        $('#redo-button').click();
+                        e.preventDefault();
+                    }
+                }
+            });
+            
+            // 撤销按钮
+            $("#undo-button").click(function() {
+                if (currentHistoryIndex > 0) {
+                    isUndoRedoAction = true;
+                    currentHistoryIndex--;
+                    restoreBoardState(boardHistory[currentHistoryIndex]);
+                    updateHistoryButtonStates();
+                    isUndoRedoAction = false;
+                }
+            });
+            
+            // 重做按钮
+            $("#redo-button").click(function() {
+                if (currentHistoryIndex < boardHistory.length - 1) {
+                    isUndoRedoAction = true;
+                    currentHistoryIndex++;
+                    restoreBoardState(boardHistory[currentHistoryIndex]);
+                    updateHistoryButtonStates();
+                    isUndoRedoAction = false;
+                }
+            });
+            
+            // 更新撤销和重做按钮状态
+            function updateHistoryButtonStates() {
+                // 禁用/启用撤销按钮
+                if (currentHistoryIndex <= 0) {
+                    $("#undo-button").prop('disabled', true);
+                } else {
+                    $("#undo-button").prop('disabled', false);
+                }
+                
+                // 禁用/启用重做按钮
+                if (currentHistoryIndex >= boardHistory.length - 1) {
+                    $("#redo-button").prop('disabled', true);
+                } else {
+                    $("#redo-button").prop('disabled', false);
+                }
+            }
+            
+            // 保存当前黑板状态到历史记录
+            function saveToHistory() {
+                if (isUndoRedoAction) return; // 如果正在执行撤销/重做操作，不保存历史
+                
+                // 获取当前黑板状态
+                const currentState = {
+                    notes: [],
+                    boardColor: $("#blackboard").css("background-color")
+                };
+                
+                // 收集所有便利贴的信息
+                $('.sticky-note').each(function() {
+                    const $note = $(this);
+                    currentState.notes.push({
+                        id: $note.attr('id'),
+                        color: $note.css('background-color'),
+                        left: parseInt($note.css('left')),
+                        top: parseInt($note.css('top')),
+                        rotation: $note.css('--rotate-deg') || '0deg',
+                        scale: $note.data('scale') || 1,
+                        title: $note.find('.note-title').html(),
+                        content: $note.find('.note-content').html(),
+                        hasBackground: $note.find('.note-background').length > 0,
+                        backgroundImage: $note.find('.note-background').length > 0 ? 
+                                        $note.find('.note-background').css('background-image') : null,
+                        zIndex: parseInt($note.css('z-index')) || 1
+                    });
+                });
+                
+                // 如果当前索引不是历史记录的最后一个，删除后面的历史记录
+                if (currentHistoryIndex < boardHistory.length - 1) {
+                    boardHistory = boardHistory.slice(0, currentHistoryIndex + 1);
+                }
+                
+                // 添加新的历史记录
+                boardHistory.push(currentState);
+                currentHistoryIndex = boardHistory.length - 1;
+                
+                // 限制历史记录数量，防止内存占用过大
+                if (boardHistory.length > 30) {
+                    boardHistory.shift();
+                    currentHistoryIndex--;
+                }
+                
+                // 更新撤销和重做按钮状态
+                updateHistoryButtonStates();
+                
+                // 同时保存到本地存储
+                saveToLocalStorage();
+            }
+            
+            // 恢复黑板状态
+            function restoreBoardState(state) {
+                // 恢复黑板背景颜色
+                $("#blackboard").css("background-color", state.boardColor || "#2a623d");
+                
+                // 根据背景颜色调整网格线颜色
+                const color = state.boardColor || "#2a623d";
+                if (color === "#FFFFFF" || color === "rgb(255, 255, 255)") {
+                    // 白色背景使用深色网格线
+                    document.documentElement.style.setProperty('--grid-color', 'rgba(0, 0, 0, 0.2)');
+                    document.documentElement.style.setProperty('--grid-color-active', 'rgba(0, 0, 0, 0.3)');
+                } else {
+                    // 深色背景使用浅色网格线
+                    document.documentElement.style.setProperty('--grid-color', 'rgba(255, 255, 255, 0.3)');
+                    document.documentElement.style.setProperty('--grid-color-active', 'rgba(255, 255, 255, 0.4)');
+                }
+                
+                // 高亮显示选中的颜色
+                $(".board-color-option").removeClass("selected");
+                $(".board-color-option").each(function() {
+                    const optionColor = $(this).data("color");
+                    const rgbColor = hexToRgb(optionColor);
+                    if (state.boardColor === optionColor || 
+                        state.boardColor === `rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})`) {
+                        $(this).addClass("selected");
+                    }
+                });
+                
+                // 清空黑板
+                $("#blackboard .sticky-note").remove();
+                
+                // 恢复便利贴
+                if (state.notes && state.notes.length > 0) {
+                    state.notes.forEach(function(note) {
+                        // 创建便利贴HTML
+                        let noteHtml;
+                        
+                        if (note.hasBackground) {
+                            // 带有涂鸦/图片的便利贴
+                            noteHtml = `
+                                <div class="sticky-note" id="${note.id}" style="background-color: ${note.color}; left: ${note.left}px; top: ${note.top}px; --rotate-deg: ${note.rotation}; z-index: ${note.zIndex};">
+                                    <div class="delete-btn"></div>
+                                    <div class="note-background" style="background-image: ${note.backgroundImage};"></div>
+                                    <div class="note-title">${note.title || ""}</div>
+                                    <div class="note-content">${note.content || ""}</div>
+                                    <div class="bottom-shadow"></div>
+                                </div>
+                            `;
+                        } else {
+                            // 普通便利贴
+                            noteHtml = `
+                                <div class="sticky-note" id="${note.id}" style="background-color: ${note.color}; left: ${note.left}px; top: ${note.top}px; --rotate-deg: ${note.rotation}; z-index: ${note.zIndex};">
+                                    <div class="delete-btn"></div>
+                                    <div class="note-title">${note.title || ""}</div>
+                                    <div class="note-content">${note.content || ""}</div>
+                                    <div class="bottom-shadow"></div>
+                                </div>
+                            `;
+                        }
+                        
+                        // 添加便利贴到黑板
+                        $("#blackboard").append(noteHtml);
+                        
+                        // 设置缩放
+                        const $note = $(`#${note.id}`);
+                        $note.data('scale', note.scale);
+                        $note.css({
+                            '--rotate-deg': note.rotation,
+                            'transform': `rotate(${note.rotation}) scale(${note.scale})`
+                        });
+                        
+                        // 初始化便利贴交互功能
+                        initializeStickyNote(`#${note.id}`);
+                    });
+                    
+                    // 确保所有便利贴的z-index正确
+                    setTimeout(function() {
+                        $('.sticky-note').each(function(index) {
+                            const zIndex = parseInt($(this).css('z-index')) || 0;
+                            if (zIndex <= 0) {
+                                $(this).css('z-index', index + 1);
+                            }
+                        });
+                    }, 100);
+                }
+                
+                // 重新绑定黑板颜色选择器事件
+                bindBoardColorEvents();
+            }
+            
+            // 绑定黑板颜色选择器事件
+            function bindBoardColorEvents() {
+                $(".board-color-option").off('click').on('click', function() {
+                    const color = $(this).data("color");
+                    $("#blackboard").css("background-color", color);
+                    
+                    // 高亮显示选中的颜色
+                    $(".board-color-option").removeClass("selected");
+                    $(this).addClass("selected");
+                    
+                    // 根据背景颜色调整网格线颜色
+                    if (color === "#FFFFFF") {
+                        // 白色背景使用深色网格线
+                        document.documentElement.style.setProperty('--grid-color', 'rgba(0, 0, 0, 0.2)');
+                        document.documentElement.style.setProperty('--grid-color-active', 'rgba(0, 0, 0, 0.3)');
+                    } else {
+                        // 深色背景使用浅色网格线
+                        document.documentElement.style.setProperty('--grid-color', 'rgba(255, 255, 255, 0.3)');
+                        document.documentElement.style.setProperty('--grid-color-active', 'rgba(255, 255, 255, 0.4)');
+                    }
+                    
+                    // 保存历史记录
+                    saveToHistory();
+                });
+            }
+            
+            // 初始绑定黑板颜色选择器事件
+            bindBoardColorEvents();
+            
+            // 默认选中绿色黑板
+            $(".board-color-option[data-color='#2a623d']").addClass("selected");
+            
+            // 添加鼠标悬停事件处理
+            $(document).on('mouseenter', '.selected-note', function() {
+                // 检查是否接近正向或45度的倍数
+                const rotation = parseFloat($(this).css('--rotate-deg') || '0deg');
+                if (Math.abs(rotation % 45) < 0.5) {
+                    $(this).addClass('show-grid');
+                }
+            });
+            
+            $(document).on('mouseleave', '.selected-note', function() {
+                $(this).removeClass('show-grid');
+            });
+            
+            // 添加保存和加载功能
+            function saveToLocalStorage() {
+                // 获取当前黑板状态
+                const currentState = {
+                    notes: [],
+                    boardColor: $("#blackboard").css("background-color")
+                };
+                
+                // 收集所有便利贴的信息
+                $('.sticky-note').each(function() {
+                    const $note = $(this);
+                    currentState.notes.push({
+                        id: $note.attr('id'),
+                        color: $note.css('background-color'),
+                        left: parseInt($note.css('left')),
+                        top: parseInt($note.css('top')),
+                        rotation: $note.css('--rotate-deg') || '0deg',
+                        scale: $note.data('scale') || 1,
+                        title: $note.find('.note-title').html(),
+                        content: $note.find('.note-content').html(),
+                        hasBackground: $note.find('.note-background').length > 0,
+                        backgroundImage: $note.find('.note-background').length > 0 ? 
+                                        $note.find('.note-background').css('background-image') : null,
+                        zIndex: parseInt($note.css('z-index')) || 1
+                    });
+                });
+                
+                // 保存到本地存储
+                localStorage.setItem('blackboardState', JSON.stringify(currentState));
+            }
+            
+            // 自动保存功能
+            function setupAutoSave() {
+                // 每30秒自动保存一次
+                setInterval(saveToLocalStorage, 30000);
+                
+                // 页面关闭前保存
+                $(window).on('beforeunload', function() {
+                    saveToLocalStorage();
+                });
+            }
+            
+            // 从本地存储加载
+            function loadFromLocalStorage() {
+                const savedState = localStorage.getItem('blackboardState');
+                if (savedState) {
+                    try {
+                        const state = JSON.parse(savedState);
+                        restoreBoardState(state);
+                        return true;
+                    } catch (e) {
+                        console.error("加载保存的状态失败:", e);
+                        return false;
+                    }
+                }
+                return false;
+            }
+            
+            // 尝试加载保存的状态
+            if (!loadFromLocalStorage()) {
+                // 如果没有保存的状态，初始化一个空状态
+                saveToHistory();
+            }
+            
+            // 确保所有便利贴都有正确的z-index
+            function fixZIndex() {
+                $('.sticky-note').each(function(index) {
+                    const zIndex = parseInt($(this).css('z-index')) || 0;
+                    if (zIndex <= 0) {
+                        $(this).css('z-index', index + 1);
+                    }
+                });
+            }
+            
+            // 页面加载后修复z-index
+            setTimeout(fixZIndex, 1000);
+            
+            // 设置自动保存
+            setupAutoSave();
+            
+            // 辅助函数：将十六进制颜色转换为RGB
+            function hexToRgb(hex) {
+                // 移除#号
+                hex = hex.replace('#', '');
+                
+                // 解析RGB值
+                const r = parseInt(hex.substring(0, 2), 16);
+                const g = parseInt(hex.substring(2, 4), 16);
+                const b = parseInt(hex.substring(4, 6), 16);
+                
+                return { r, g, b };
+            }
+            
+            // 初始保存当前状态
+            saveToHistory();
+            
+            // 初始化页面时，确保所有便利贴可以被点击
+            function fixStickyNoteEvents() {
+                // 为每个便利贴重新初始化交互功能
+                $('.sticky-note').each(function() {
+                    initializeStickyNote('#' + $(this).attr('id'));
+                });
+                
+                // 点击黑板空白处取消选中
+                $('#blackboard').off('click').on('click', function(e) {
+                    if ($(e.target).is('#blackboard')) {
+                        $('.sticky-note').removeClass('selected-note');
+                    }
+                });
+            }
+            
+            // 页面加载完成后修复事件，并定期检查
+            $(document).ready(function() {
+                setTimeout(fixStickyNoteEvents, 500);
+                setTimeout(fixStickyNoteEvents, 1000);
+                setTimeout(fixStickyNoteEvents, 2000);
+                setInterval(fixStickyNoteEvents, 5000); // 每5秒检查一次，确保事件绑定正常
+            });
+            
+            // 初始选中黄色便利贴
+            $(".color-option[data-color='#FFFF99']").addClass("selected");
+        });
+    </script>
+</body>
+</html>

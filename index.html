@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黑板便利贴生成器</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="blackboard-container">
+        <!-- 黑板背景 -->
+        <div class="blackboard" id="blackboard">
+            <!-- 便利贴将在这里动态生成 -->
+            <div class="board-colors">
+                <div class="board-color-selector">
+                    <span class="board-color-option" data-color="#2a623d" title="绿色黑板"></span>
+                    <span class="board-color-option" data-color="#000000" title="黑色黑板"></span>
+                    <span class="board-color-option" data-color="#FFFFFF" title="白色黑板"></span>
+                    <span class="board-color-option" data-color="#1e3a5f" title="蓝色黑板"></span>
+                    <span class="board-color-option" data-color="#5f1e1e" title="红色黑板"></span>
+                    <span class="board-color-option" data-color="#3d3d3d" title="灰色黑板"></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <!-- 颜色选择器 -->
+            <div class="panel-section">
+                <h3>选择颜色</h3>
+                <div class="color-selector">
+                    <span class="color-option" data-color="#FFFF99"></span>
+                    <span class="color-option" data-color="#FF9999"></span>
+                    <span class="color-option" data-color="#99FF99"></span>
+                    <span class="color-option" data-color="#9999FF"></span>
+                    <span class="color-option" data-color="#FF99FF"></span>
+                    <span class="color-option" data-color="#FFFFFF"></span>
+                    <span class="color-option random-color" data-color="random">随机</span>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <h3>便利贴内容</h3>
+                <input type="text" id="note-title" placeholder="输入标题...">
+                <textarea id="note-content" placeholder="输入内容..."></textarea>
+            </div>
+            
+            <!-- 涂鸦区 -->
+            <div class="panel-section drawing-section">
+                <h3>添加涂鸦或图片</h3>
+                <div class="drawing-container">
+                    <canvas id="drawing-canvas" width="280" height="280"></canvas>
+                    <div class="drawing-tools">
+                        <button id="clear-canvas" title="清除"><i class="eraser-icon">🧹</i></button>
+                        <input type="color" id="brush-color" value="#000000" title="画笔颜色">
+                        <input type="range" id="brush-size" min="1" max="20" value="3" title="画笔大小">
+                        <label for="image-upload" class="upload-btn" title="上传图片"><i class="upload-icon">📷</i></label>
+                        <input type="file" id="image-upload" accept="image/*" style="display: none;">
+                    </div>
+                </div>
+                <button id="create-note">生成便利贴</button>
+            </div>
+            
+            <div class="panel-section action-buttons">
+                <h3>操作</h3>
+                <div class="history-buttons">
+                    <button id="undo-button" title="撤销"><i class="history-icon">↩</i></button>
+                    <button id="redo-button" title="重做"><i class="history-icon">↪</i></button>
+                </div>
+                <button id="save-board">保存为图片</button>
+                <button id="clear-board">清空黑板</button>
+                <div class="keyboard-tips">
+                    <span class="tip-icon">?</span>
+                    <div class="tips-content">
+                        <h4>键盘快捷键:</h4>
+                        <p>← → : 调整便利贴角度</p>
+                        <p>↑ ↓ : 放大/缩小便利贴</p>
+                        <p>双击: 编辑便利贴</p>
+                        <p>右键: 打开菜单</p>
+                        <p>Shift+方向键: 回正/恢复大小</p>
+                        <p>Shift+↓ : 回正到0度</p>
+                        <p>Shift+← → : 八向对齐</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 

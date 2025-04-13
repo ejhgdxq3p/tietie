@@ -1,0 +1,571 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f0f0f0;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.blackboard-container {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: row;
+    position: relative;
+}
+
+/* 黑板背景 */
+.blackboard {
+    flex: 1;
+    background-color: #2a623d;
+    border: 10px solid #8b5a2b;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    overflow: hidden;
+    height: 100vh;
+}
+
+/* 控制面板 */
+.control-panel {
+    background-color: rgba(50, 50, 50, 0.8);
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    width: 250px;
+    height: 100vh;
+    overflow-y: auto;
+    color: white;
+    gap: 20px;
+}
+
+/* 面板区块 */
+.panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.panel-section h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #4CAF50;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 5px;
+}
+
+.input-group {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#note-title {
+    padding: 8px;
+    width: 100%;
+    border-radius: 4px;
+    border: none;
+}
+
+#note-content {
+    padding: 8px;
+    width: 100%;
+    height: 60px;
+    border-radius: 4px;
+    border: none;
+    resize: none;
+}
+
+.color-selector {
+    display: flex;
+    gap: 5px;
+    pointer-events: none;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.color-option {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid white;
+    user-select: none;
+    pointer-events: auto;
+}
+
+.color-option[data-color="#FFFF99"] { background-color: #FFFF99; }
+.color-option[data-color="#FF9999"] { background-color: #FF9999; }
+.color-option[data-color="#99FF99"] { background-color: #99FF99; }
+.color-option[data-color="#9999FF"] { background-color: #9999FF; }
+.color-option[data-color="#FF99FF"] { background-color: #FF99FF; }
+.color-option[data-color="#FFFFFF"] { 
+    background-color: #FFFFFF; 
+    border: 2px solid #ddd;
+}
+
+.random-color {
+    background: linear-gradient(45deg, red, yellow, green, blue, purple);
+    width: auto;
+    padding: 0 5px;
+    border-radius: 10px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    user-select: none;
+    pointer-events: auto;
+}
+
+button {
+    padding: 8px 15px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 便利贴样式 */
+.sticky-note {
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    padding: 15px;
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+    cursor: move;
+    z-index: 1;
+    transform: rotate(var(--rotate-deg));
+    transition: box-shadow 0.2s ease, transform 0.1s ease;
+    border-radius: 2px;
+    overflow: hidden;
+    opacity: 0.85; /* 默认透明度 */
+}
+
+/* 便利贴背景图片 */
+.note-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.9; /* 调整透明度，使文字更易读 */
+    pointer-events: none; /* 允许点击穿透到下面的元素 */
+}
+
+.sticky-note:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    border-width: 0 20px 20px 0;
+    border-style: solid;
+    border-color: rgba(0, 0, 0, 0.1) transparent;
+}
+
+/* 便利贴底部阴影 */
+.sticky-note .bottom-shadow {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.05));
+    pointer-events: none;
+}
+
+/* 被覆盖的便利贴（无阴影） */
+.sticky-note.covered {
+    box-shadow: none;
+}
+
+.sticky-note .note-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+    font-size: 16px;
+    position: relative; /* 确保在背景图片上方 */
+    z-index: 1;
+    color: rgba(0, 0, 0, 0.9); /* 确保文字不透明 */
+    text-shadow: 0 0 2px rgba(255, 255, 255, 0.5); /* 添加文字阴影增加可读性 */
+}
+
+.sticky-note .note-content {
+    font-size: 14px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    position: relative; /* 确保在背景图片上方 */
+    z-index: 1;
+    color: rgba(0, 0, 0, 0.9); /* 确保文字不透明 */
+    text-shadow: 0 0 2px rgba(255, 255, 255, 0.5); /* 添加文字阴影增加可读性 */
+}
+
+/* 删除按钮 */
+.delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 28px;
+    height: 28px;
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #ff5252;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 26px;
+    cursor: pointer;
+    font-size: 22px;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s;
+    z-index: 2;
+    opacity: 0; /* 默认隐藏 */
+    visibility: hidden; /* 默认不可见 */
+}
+
+.delete-btn:hover {
+    background-color: #ff5252;
+    color: white;
+    transform: scale(1.1);
+}
+
+/* 选中便利贴时显示删除按钮 */
+.selected-note .delete-btn {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 右键菜单 */
+.context-menu {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 5px 0;
+    z-index: 1000;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.context-menu-item {
+    padding: 5px 15px;
+    cursor: pointer;
+}
+
+.context-menu-item:hover {
+    background-color: #f0f0f0;
+}
+
+.color-submenu {
+    display: flex;
+    padding: 5px;
+    gap: 5px;
+}
+
+/* 选中的便利贴 */
+.selected-note {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #4CAF50, 0 8px 15px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    transform: rotate(var(--rotate-deg)) scale(1.02) translateY(-3px) !important;
+    opacity: 0.95; /* 选中时更不透明 */
+}
+
+/* 即使被覆盖，选中的便利贴也保持阴影 */
+.selected-note.covered {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #4CAF50, 0 8px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* 添加键盘提示样式 */
+.keyboard-tips {
+    position: relative;
+    margin-left: 10px;
+}
+
+.tip-icon {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    text-align: center;
+    line-height: 20px;
+    cursor: help;
+}
+
+.tips-content {
+    position: absolute;
+    bottom: 30px;
+    right: 0;
+    background-color: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    width: 200px;
+    display: none;
+    color: #333;
+    z-index: 1000;
+}
+
+.tip-icon:hover + .tips-content {
+    display: block;
+}
+
+.tips-content h4 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    color: #4CAF50;
+}
+
+.tips-content p {
+    margin: 5px 0;
+    font-size: 12px;
+}
+
+/* 添加网格背景和磁吸效果 */
+.align-to-grid {
+    /* 只有选中的便利贴才显示网格 */
+    background-image: linear-gradient(var(--grid-color) 1px, transparent 1px),
+                     linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: center center;
+}
+
+/* 磁吸对齐指示线 */
+.alignment-guide {
+    position: absolute;
+    background-color: rgba(76, 175, 80, 0.5);
+    pointer-events: none;
+    z-index: 1000;
+    transition: opacity 0.2s;
+}
+
+.horizontal-guide {
+    height: 1px;
+    left: 0;
+    right: 0;
+}
+
+.vertical-guide {
+    width: 1px;
+    top: 0;
+    bottom: 0;
+}
+
+/* 拖动中的便利贴 */
+.ui-draggable-dragging {
+    opacity: 0.9;
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* 拖动时的网格背景 */
+.align-to-grid.ui-draggable-dragging {
+    background-image: linear-gradient(var(--grid-color-active) 1px, transparent 1px),
+                     linear-gradient(90deg, var(--grid-color-active) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: center center;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* 涂鸦区样式 */
+.drawing-section {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.drawing-container {
+    background-color: white;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+#drawing-canvas {
+    background-color: white;
+    cursor: crosshair;
+    width: 100%;
+    height: 280px;
+    border-bottom: 1px solid #ddd;
+}
+
+.drawing-tools {
+    display: flex;
+    padding: 5px;
+    background-color: #f5f5f5;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#brush-color {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    cursor: pointer;
+}
+
+#brush-size {
+    width: 60px;
+}
+
+#clear-canvas, .upload-btn {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+#clear-canvas:hover, .upload-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.eraser-icon, .upload-icon {
+    font-size: 16px;
+}
+
+/* 生成便利贴按钮样式 */
+#create-note {
+    margin-top: 5px;
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+#create-note:hover {
+    background-color: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+#create-note:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* 撤销和重做按钮 */
+.history-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+#undo-button, #redo-button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background-color: #555;
+    transition: all 0.3s;
+}
+
+#undo-button:hover, #redo-button:hover {
+    background-color: #666;
+}
+
+#undo-button:disabled, #redo-button:disabled {
+    background-color: #444;
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.history-icon {
+    font-size: 18px;
+    font-style: normal;
+}
+
+/* 黑板背景颜色选择器 */
+.board-colors {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 100;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 8px;
+    border-radius: 5px;
+    display: flex;
+    gap: 8px;
+}
+
+.board-color-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.board-color-option {
+    width: 25px;
+    height: 25px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.board-color-option:hover {
+    transform: scale(1.1);
+}
+
+.board-color-option.selected {
+    border-color: white;
+    transform: scale(1.1);
+}
+
+.board-color-option[data-color="#2a623d"] { background-color: #2a623d; }
+.board-color-option[data-color="#000000"] { background-color: #000000; }
+.board-color-option[data-color="#FFFFFF"] { background-color: #FFFFFF; }
+.board-color-option[data-color="#1e3a5f"] { background-color: #1e3a5f; }
+.board-color-option[data-color="#5f1e1e"] { background-color: #5f1e1e; }
+.board-color-option[data-color="#3d3d3d"] { background-color: #3d3d3d; }
+
+:root {
+    --grid-color: rgba(255, 255, 255, 0.3);
+    --grid-color-active: rgba(255, 255, 255, 0.4);
+}
+
+/* 只有选中的便利贴才显示网格 */
+.selected-note.align-to-grid.show-grid {
+    background-image: linear-gradient(var(--grid-color) 1px, transparent 1px),
+                     linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: center center;
+}
+
+/* 拖动时的网格背景 */
+.align-to-grid.ui-draggable-dragging {
+    background-image: linear-gradient(var(--grid-color-active) 1px, transparent 1px),
+                     linear-gradient(90deg, var(--grid-color-active) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: center center;
+    background-color: rgba(255, 255, 255, 0.05);
+} 
